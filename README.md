@@ -29,6 +29,50 @@ playwright-csharp-booker/
 
 ---
 
+## Versions: base first, then extended
+
+The project is kept in two versions, so you can show **a working base first**, and only then the extended coverage built on top of it.
+
+| Version | Where | What it contains |
+|---|---|---|
+| **Base** | branch `main`, frozen as tag `v1.0-base` | The reference suite described in this README: **30 tests** (14 unit, 5 component, 10 API, 1 UI), all green |
+| **Extended** | branch `extended-coverage` | The base plus more business flows, negative API cases, known-defect tests and extra UI journeys |
+
+The tag `v1.0-base` never moves, so the base can always be shown exactly as it was, even after `main` changes later.
+
+### Demo order (interview walkthrough)
+
+**1. Show the base, run it and validate it**
+
+```powershell
+cd C:\LAB\playwright-csharp-booker
+git switch main                    # or: git switch --detach v1.0-base   (the frozen snapshot)
+dotnet build
+dotnet test                        # expected: Passed 30, Failed 0
+dotnet test --filter "TestCategory=Unit"   # then one layer at a time: Unit | Component | Api | Ui
+```
+
+What to say: "This is the base: one project, four layers of the pyramid, all green. Here is how it is structured, and how I run and debug it."
+
+**2. Only then, show the extension**
+
+```powershell
+git switch extended-coverage
+dotnet build
+dotnet test
+git diff main --stat               # exactly what was added on top of the base
+```
+
+What to say: "Once the base was stable, I extended it in a branch: more business flows, negative cases and known defects. The base never depended on the extension."
+
+### Working on the versions
+
+- New work goes only into `extended-coverage` (or a feature branch from it). `main` stays the base.
+- Before a demo, run `dotnet test` on **both** branches.
+- When the extension is finished and reviewed, it can be merged into `main`. The tag `v1.0-base` still points at the original base.
+
+---
+
 ## Run it
 
 ```powershell
