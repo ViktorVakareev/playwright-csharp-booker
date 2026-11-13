@@ -1,4 +1,4 @@
 {
-  "dotnet-test-explorer.testProjectPath": "tests/Booker.Tests/Booker.Tests.csproj",
-  "dotnet.defaultSolution": "Booker.slnx"
+  "dotnet.defaultSolution": "Booker.slnx",
+  "dotnet.unitTests.runSettingsPath": "booker.runsettings"
 }
