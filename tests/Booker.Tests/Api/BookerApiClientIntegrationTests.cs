@@ -27,4 +27,27 @@ public class BookerApiClientIntegrationTests
             Assert.That(afterDelete, Is.Null);
         });
     }
+
+    [Test]
+    public async Task Partial_update_through_the_RestSharp_client()
+    {
+        using var client = new BookerApiClient(Settings.BookerUrl);
+        var token = await client.CreateTokenAsync(Settings.AdminUser, Settings.AdminPassword);
+        var created = await client.CreateBookingAsync(new BookingBuilder().WithPrice(150).Build());
+
+        try
+        {
+            var patched = await client.PatchBookingAsync(created.BookingId, new { additionalneeds = "Cot" }, token);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(patched.AdditionalNeeds, Is.EqualTo("Cot"));
+                Assert.That(patched.TotalPrice, Is.EqualTo(150));
+            });
+        }
+        finally
+        {
+            await client.DeleteBookingAsync(created.BookingId, token);
+        }
+    }
 }

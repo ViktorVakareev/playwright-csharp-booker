@@ -22,4 +22,11 @@ public sealed class StubHttpHandler(HttpStatusCode status, string body) : HttpMe
     }
 }
 
+/// <summary>A network that is down: every request fails before any response (DNS error, refused connection, timeout).</summary>
+public sealed class UnreachableHttpHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        throw new HttpRequestException("Connection refused");
+}
+
 public sealed record RecordedRequest(HttpMethod Method, Uri Uri, IReadOnlyDictionary<string, string> Headers, string? Body);

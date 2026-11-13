@@ -78,6 +78,68 @@ public class BookerApiClientTests
     }
 
     [Test]
+    public async Task Patch_sends_only_the_changed_fields_with_the_auth_cookie()
+    {
+        var stub = new StubHttpHandler(HttpStatusCode.OK, """{"firstname": "Ann", "additionalneeds": "Cot"}""");
+        using var client = new BookerApiClient(BaseUrl, stub);
+
+        var updated = await client.PatchBookingAsync(7, new { additionalneeds = "Cot" }, "abc123");
+
+        var sent = stub.Requests.Single();
+        using var body = JsonDocument.Parse(sent.Body!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(updated.AdditionalNeeds, Is.EqualTo("Cot"));
+            Assert.That(sent.Method, Is.EqualTo(HttpMethod.Patch));
+            Assert.That(sent.Uri.AbsolutePath, Is.EqualTo("/booking/7"));
+            Assert.That(sent.Headers["Cookie"], Does.Contain("token=abc123"));
+            Assert.That(body.RootElement.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[] { "additionalneeds" }));   // nothing else sent
+        });
+    }
+
+    [Test]
+    public async Task Delete_accepts_201_as_success()
+    {
+        var stub = new StubHttpHandler(HttpStatusCode.Created, "Created");
+        using var client = new BookerApiClient(BaseUrl, stub);
+
+        await client.DeleteBookingAsync(7, "abc123");   // no exception = success
+
+        Assert.That(stub.Requests.Single().Method, Is.EqualTo(HttpMethod.Delete));
+    }
+
+    [Test]
+    public void A_forbidden_delete_is_reported_with_its_status_code()
+    {
+        var stub = new StubHttpHandler(HttpStatusCode.Forbidden, "Forbidden");
+        using var client = new BookerApiClient(BaseUrl, stub);
+
+        var error = Assert.ThrowsAsync<BookerApiException>(() => client.DeleteBookingAsync(7, "expired"));
+
+        Assert.That(error!.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    [Test]
+    public void Get_throws_on_a_server_error_instead_of_returning_null()
+    {
+        var stub = new StubHttpHandler(HttpStatusCode.InternalServerError, "boom");
+        using var client = new BookerApiClient(BaseUrl, stub);
+
+        // Only a 404 means "no such booking". A 500 must not be mistaken for it.
+        Assert.ThrowsAsync<BookerApiException>(() => client.GetBookingAsync(7));
+    }
+
+    [Test]
+    public void No_response_at_all_becomes_a_clear_exception()
+    {
+        using var client = new BookerApiClient(BaseUrl, new UnreachableHttpHandler());
+
+        var error = Assert.ThrowsAsync<BookerApiException>(() => client.GetBookingAsync(7));
+
+        Assert.That(error!.Message, Does.Contain("no response"));
+    }
+
+    [Test]
     public void A_server_error_is_reported_with_its_status_code()
     {
         var stub = new StubHttpHandler(HttpStatusCode.InternalServerError, "boom");

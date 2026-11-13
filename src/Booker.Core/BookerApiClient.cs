@@ -67,6 +67,15 @@ public sealed class BookerApiClient : IDisposable
         return response.Data!;
     }
 
+    /// <summary>Partial update: only the fields in <paramref name="changes"/> are sent and changed (PATCH).</summary>
+    public async Task<Booking> PatchBookingAsync(int id, object changes, string token)
+    {
+        var request = Json($"booking/{id}", Method.Patch).AddJsonBody(changes).AddCookie("token", token, "/", _host);
+        var response = await _client.ExecuteAsync<Booking>(request);
+        EnsureStatus(response, HttpStatusCode.OK, "Patch booking failed");
+        return response.Data!;
+    }
+
     public async Task DeleteBookingAsync(int id, string token)
     {
         var request = Json($"booking/{id}", Method.Delete).AddCookie("token", token, "/", _host);

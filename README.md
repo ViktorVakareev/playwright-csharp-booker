@@ -20,7 +20,8 @@ playwright-csharp-booker/
 └─ tests/Booker.Tests/
    ├─ Unit/                         BookingValidatorTests, BookingBuilderTests
    ├─ Component/                    BookerApiClientTests + StubHttpHandler
-   ├─ Api/                          HealthAndAuthTests, BookingApiTests, BookerApiClientIntegrationTests
+   ├─ Api/                          HealthAndAuthTests, BookingApiTests, BookerApiClientIntegrationTests,
+   │                                BookingNegativeTests, BookingFlowTests, KnownDefectTests (extended version)
    ├─ Ui/Pages/HomePage.cs          page object
    ├─ Ui/ContactFormTests.cs        UI test
    ├─ Support/                      Settings, ApiTestBase, UiTestBase (tracing on failure), parallel config
@@ -36,7 +37,7 @@ The project is kept in two versions, so you can show **a working base first**, a
 | Version | Where | What it contains |
 |---|---|---|
 | **Base** | branch `main`, frozen as tag `v1.0-base` | The reference suite described in this README: **30 tests** (14 unit, 5 component, 10 API, 1 UI), all green |
-| **Extended** | branch `extended-coverage` | The base plus more business flows, negative API cases, known-defect tests and extra UI journeys |
+| **Extended** | branch `extended-coverage` | The base plus business flows, negative API cases and known-defect tests: **68 tests** (14 unit, 10 component, 43 API, 1 UI) plus 6 known-defect tests run on demand. See [What the extended version adds](#what-the-extended-version-adds) |
 
 The tag `v1.0-base` never moves, so the base can always be shown exactly as it was, even after `main` changes later.
 
@@ -73,6 +74,44 @@ What to say: "Once the base was stable, I extended it in a branch: more business
 
 ---
 
+## What the extended version adds
+
+**From 30 to 68 tests**, all green, plus 6 known-defect tests that run only on demand.
+
+| File | Category | Tests | What it covers |
+|---|---|---|---|
+| `Api/BookingNegativeTests.cs` | `Api`, `Negative` | 20 | **Auth:** invalid or empty token, PATCH/DELETE without a token, wrong credentials table. **Ids:** unknown or non-numeric id → 404; PUT/DELETE on an unknown id → 405. **Bodies:** partial PUT → 400, malformed JSON → 400, empty body not accepted. **Headers:** `Accept` table (JSON/XML → 200, others → 418). Every "rejected" test also checks the booking was **not changed**. |
+| `Api/BookingFlowTests.cs` | `Api`, `Flow` | 12 | PATCH changes only the fields sent; update and delete with **cookie or Basic auth**; one token for several changes; **journey:** book 3 nights → extend to 5 → cancel → 404; search by first + last name, unknown name, two guests with the same name, date range, and the date-filter boundary quirk. |
+| `Api/KnownDefectTests.cs` | `Api`, `KnownDefect` | 6 (explicit) | What the API **should** do but doesn't: check-out before check-in, negative price, invalid date, non-numeric price (all accepted with 200), empty body → 500, unknown id → 405 instead of 404. |
+| `Api/BookerApiClientIntegrationTests.cs` | `Api` | +1 | Partial update through our RestSharp client against the real service. |
+| `Component/BookerApiClientTests.cs` | `Component` | +5 | New `PatchBookingAsync` sends only the changed fields with the cookie; delete treats 201 as success; 403 on delete → exception with status; 500 on GET throws (not `null`); **no response at all** (network down) → clear exception. |
+
+Supporting changes:
+- **`BookerApiClient.PatchBookingAsync`**: partial update (PATCH) in the client.
+- **`ApiTestBase` cleans up after itself**: every booking a test creates is tracked and deleted in `[TearDown]` (with Basic auth), so a run leaves no data on the server. Verified: same booking count before and after two full runs.
+- New helpers in `ApiTestBase`: `PostRawBookingAsync` (send any body, still cleaned up), `SearchAsync`, `BasicAuth`.
+- `Component/StubHttpHandler.cs` also has `UnreachableHttpHandler`, which simulates a network that is down.
+
+### Known defects: tests that are allowed to fail
+
+```powershell
+dotnet test                                          # normal run: 68 passed, known defects not run
+dotnet test --filter "TestCategory=KnownDefect"      # expected today: 6 failed
+```
+
+The `KnownDefectTests` fixture is `[Explicit]`, so a normal run (and CI) stays green, but the defects are written down as executable tests, not just in a bug tracker. When one is fixed, its test turns green: remove `[Explicit]` and it becomes a normal regression test.
+
+What to say: "Our own `BookingValidator` already rejects a negative price and check-out before check-in; the unit tests prove it. The API accepts both. So the rule exists, but the service doesn't apply it. I wrote that down as tests rather than ignoring it."
+
+### More filters
+
+```powershell
+dotnet test --filter "TestCategory=Negative"         # 20 negative API tests
+dotnet test --filter "TestCategory=Flow"             # 12 business-flow tests
+```
+
+---
+
 ## Run it
 
 ```powershell
@@ -90,7 +129,7 @@ $env:HEADED="1"; dotnet test --filter "TestCategory=Ui"                         
 - Google Chrome is installed: the runsettings use `channel=chrome`, because Windows Smart App Control blocks Playwright's own Chromium.
 - Internet access for the UI test.
 
-Expected: **30 tests**: 14 unit, 5 component, 10 API, 1 UI. (`[TestCase]` rows count separately.)
+Expected on `main` (base): **30 tests**: 14 unit, 5 component, 10 API, 1 UI. On `extended-coverage`: **68 tests**: 14 unit, 10 component, 43 API, 1 UI. (`[TestCase]` rows count separately.)
 
 ---
 
@@ -149,6 +188,10 @@ pwsh tests/Booker.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
 | Invalid body → **500**, not 400 | A 500 on bad input is a bug; the test asserts "not 2xx" and notes it |
 | PUT/DELETE need `Cookie: token=...` (or Basic auth) | Auth tests: with a token 200, without 403 |
 | The data resets periodically | Tests create their own data and never rely on fixed ids |
+| PUT/DELETE on an unknown id → **405**, not 404 | Documented in `BookingNegativeTests` (actual) and `KnownDefectTests` (expected) |
+| PUT with some fields missing → **400**; PATCH changes only what you send | The difference between replacing and partially updating a resource |
+| Accepts check-out before check-in, a negative price, `"not-a-date"` (stored as `0NaN-aN-aN`) and `"abc"` as price (stored as `null`) | No server-side validation: the known-defect tests |
+| Search: `checkin` filter is **exclusive**, `checkout` filter is **inclusive** | A booking starting on the given day is *not* found, one ending on it *is*. Boundary testing found it |
 
 ---
 
