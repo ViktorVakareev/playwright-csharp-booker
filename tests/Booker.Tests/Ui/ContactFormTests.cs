@@ -17,12 +17,12 @@ public class ContactFormTests : UiTestBase
         var message = ContactMessage.Valid();
 
         await home.GotoAsync();
-        await Expect(home.Heading).ToContainTextAsync("Shady Meadows");
+        await Expect(home.Heading).ToContainTextAsync("Welcome to Shady Meadows B&B");
         await home.SendMessageAsync(message);
 
         // Web-first assertions wait for the confirmation, so no sleeps are needed.
         await Expect(home.SuccessHeading).ToBeVisibleAsync();
-        await Expect(home.SuccessHeading).ToContainTextAsync(message.Name);
+        await Expect(home.SuccessHeading).ToContainTextAsync("Thanks for getting in touch " + message.Name);
         await Expect(home.SubmitButton).Not.ToBeVisibleAsync();
     }
 }
