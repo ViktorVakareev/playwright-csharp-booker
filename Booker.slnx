@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="booker.runsettings" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Booker.Core/Booker.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Booker.Tests/Booker.Tests.csproj" />
+  </Folder>
+</Solution>
+дотнет тест

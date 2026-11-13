@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <ResultsDirectory>./TestResults</ResultsDirectory>
+  </RunConfiguration>
+  <NUnit>
+    <NumberOfTestWorkers>4</NumberOfTestWorkers>
+  </NUnit>
+  <Playwright>
+    <BrowserName>chromium</BrowserName>
+    <!-- Branded Chrome: Windows Smart App Control blocks Playwright's own unsigned Chromium build. -->
+    <LaunchOptions>
+      <Channel>chrome</Channel>
+      <Headless>true</Headless>
+    </LaunchOptions>
+    <ExpectTimeout>5000</ExpectTimeout>
+  </Playwright>
+  <TestRunParameters>
+    <Parameter name="BookerUrl" value="http://localhost:3001" />
+    <Parameter name="UiUrl" value="https://automationintesting.online" />
+  </TestRunParameters>
+</RunSettings>
